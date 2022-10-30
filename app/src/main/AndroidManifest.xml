@@ -23,7 +23,7 @@
                 android:value="" />
         </activity>
         <activity
-            android:name=".TASK_1.ui.MainActivity"
+            android:name=".TASK_2.MainActivity"
             android:exported="true"
             android:label="@string/title_activity_main"
             android:theme="@style/Theme.ToDoCompose">
