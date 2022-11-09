@@ -36,9 +36,6 @@ fun HomeScreen(navController: NavController) {
             onValueChange = {
                 firstName.value = it
             },
-            placeholder = {
-                Text(text = "Enter First Name")
-            },
             label = {
                 Text(text = "First Name")
             },
@@ -54,9 +51,6 @@ fun HomeScreen(navController: NavController) {
             onValueChange = {
                 lastName.value = it
             },
-            placeholder = {
-                Text(text = "Enter Last Name")
-            },
             label = {
                 Text(text = "Last Name")
             },
@@ -71,9 +65,6 @@ fun HomeScreen(navController: NavController) {
         OutlinedTextField(value = standard.value,
             onValueChange = {
                 standard.value = it
-            },
-            placeholder = {
-                Text(text = "Enter Standard")
             },
             label = {
                 Text(text = "Standard")
