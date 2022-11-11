@@ -9,4 +9,5 @@ import com.google.android.gms.auth.api.identity.SignInClient
 
 object Auth {
     var user: UserModel? = null
+    var docId: String = ""
 }

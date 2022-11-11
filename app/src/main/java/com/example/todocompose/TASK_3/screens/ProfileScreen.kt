@@ -6,6 +6,7 @@ import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import android.text.TextUtils.substring
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -21,32 +22,42 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
+import androidx.core.net.toUri
 import coil.compose.AsyncImage
 import com.example.todocompose.TASK_3.util.Auth
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.ktx.Firebase
 import com.google.firebase.storage.FirebaseStorage
 import java.io.ByteArrayOutputStream
 import java.util.*
+import com.example.todocompose.R
+import com.example.todocompose.TASK_3.util.DOC_ID
+import com.example.todocompose.TASK_3.util.EMAIL_ID
+import com.example.todocompose.TASK_3.util.writeString
+import com.google.android.gms.common.internal.safeparcel.SafeParcelWriter.writeString
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.tasks.await
 
 @Composable
 fun ProfileScreen() {
     val activity = LocalContext.current as Activity
 
     var uri by remember {
-        mutableStateOf(Auth.user!!.profilePicture)
+        mutableStateOf(getPhotoURI(activity))
     }
 
-    val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) {
-        uri = saveToCloud(activity, it)
-    }
+    val launcher =
+        rememberLauncherForActivityResult(contract = ActivityResultContracts.GetContent()) {
+            uri = saveToCloud(activity, it)
+        }
 
     ConstraintLayout(modifier = Modifier.fillMaxSize()) {
         val (profilePicIV, firstNameTV, lastNameTV, emailTV) = createRefs()
 
         AsyncImage(model = uri,
+            placeholder = painterResource(R.drawable.ic_launcher_foreground),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -61,7 +72,7 @@ fun ProfileScreen() {
                 .clickable { launcher.launch("image/*") }
         )
 
-        OutlinedTextField(value = Auth.user!!.firstName?:"Nothing",
+        OutlinedTextField(value = Auth.user!!.firstName ?: "Nothing",
             enabled = false,
             onValueChange = {},
             label = {
@@ -74,7 +85,7 @@ fun ProfileScreen() {
                 end.linkTo(parent.end)
             })
 
-        OutlinedTextField(value = Auth.user!!.lastName?:"Nothing",
+        OutlinedTextField(value = Auth.user!!.lastName ?: "Nothing",
             enabled = false,
             onValueChange = {},
             label = {
@@ -87,7 +98,7 @@ fun ProfileScreen() {
                 end.linkTo(parent.end)
             })
 
-        OutlinedTextField(value = Auth.user!!.email?:"Nothing",
+        OutlinedTextField(value = Auth.user!!.email ?: "Nothing",
             enabled = false,
             onValueChange = {},
             label = {
@@ -102,7 +113,9 @@ fun ProfileScreen() {
     }
 }
 
-fun saveToCloud(context: Activity, uri: Uri?):Uri? {
+
+
+fun saveToCloud(context: Activity, uri: Uri?): Uri? {
 
     var resultUri: Uri? = uri
 
@@ -132,14 +145,14 @@ fun saveToCloud(context: Activity, uri: Uri?):Uri? {
         Toast.makeText(context, "Upload Failed", Toast.LENGTH_SHORT).show()
     }.addOnSuccessListener {
         Toast.makeText(context, "Upload Successful", Toast.LENGTH_SHORT).show()
-        resultUri = it.uploadSessionUri
-        saveNewPhotoLink(resultUri.toString())
+        val sessionUri = it.uploadSessionUri.toString()
+        resultUri = "${sessionUri.substring(0, sessionUri.indexOf("&uploadType"))}&alt=media".toUri()
+        saveNewPhotoLink(context, resultUri.toString())
     }
-
     return resultUri
 }
 
-fun saveNewPhotoLink(newProfilePicLink: String){
+fun saveNewPhotoLink(context: Activity, newProfilePicLink: String) {
     val database = FirebaseFirestore.getInstance()
     val user = hashMapOf(
         Auth.user!!.email to newProfilePicLink,
@@ -149,8 +162,34 @@ fun saveNewPhotoLink(newProfilePicLink: String){
         .add(user)
         .addOnSuccessListener { documentReference ->
             Log.d("TAG", "DocumentSnapshot added with ID: ${documentReference.id}")
+            runBlocking {
+                context.writeString(DOC_ID, documentReference.id)
+            }
         }
         .addOnFailureListener { e ->
             Log.w("TAG", "Error adding document", e)
         }
+}
+
+fun getPhotoURI(context: Activity): Uri? {
+    var result: Uri? = Auth.user?.profilePicture
+    if(result == null) {
+        val database = FirebaseFirestore.getInstance()
+        try {
+            runBlocking {
+                val doc = database.collection("User_Collection")
+                    .document(Auth.docId)
+                    .get()
+                    .await()
+                result = doc.data?.get(Auth.user!!.email).toString().toUri()
+            }
+        }
+        catch (e: Exception){
+            Log.d("ERROR", " ${e.message} ")
+        }
+    }
+    else{
+        saveNewPhotoLink(context, result.toString())
+    }
+    return result
 }

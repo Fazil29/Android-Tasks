@@ -19,29 +19,45 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.constraintlayout.compose.ConstraintLayout
 import androidx.navigation.NavController
-import com.example.todocompose.TASK_3.util.Auth
-import com.example.todocompose.TASK_3.util.Screen
-import com.example.todocompose.TASK_3.util.UserModel
+import com.example.todocompose.TASK_3.util.*
 import com.google.android.gms.auth.api.identity.BeginSignInRequest
 import com.google.android.gms.auth.api.identity.Identity
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
 @SuppressLint("UnusedMaterialScaffoldPaddingParameter")
 @Composable
 fun LoginScreen(navController: NavController) {
+
+    val myScope = rememberCoroutineScope()
     val context = LocalContext.current as Activity
+
     val launcher = rememberLauncherForActivityResult(contract = ActivityResultContracts.StartIntentSenderForResult()){ result ->
         if (result.resultCode != Activity.RESULT_OK) {
             return@rememberLauncherForActivityResult
         }
+
         val oneTapClient = Identity.getSignInClient(context)
         val credential = oneTapClient.getSignInCredentialFromIntent(result.data)
         val idToken = credential.googleIdToken
+
         if (idToken != null) {
             credential.let {
+                myScope.launch {
+                    context.apply {
+                        writeBool(LOGGED_IN, true)
+                        writeString(FIRST_NAME, it.givenName?:"FirstName")
+                        writeString(LAST_NAME, it.familyName?:"LastName")
+                        writeString(EMAIL_ID, it.id)
+                    }
+                }
                 Auth.user = UserModel(it.givenName, it.familyName, it.id, it.profilePictureUri)
-                navController.navigate(Screen.Profile.route)
+                navController.navigate(Screen.Profile.route){
+                    this.popUpTo(Screen.Login.route){
+                        inclusive = true
+                    }
+                }
             }
         } else {
             Log.d("LOG", "Null Token")
@@ -83,27 +99,18 @@ suspend fun openSignInDialog(context: Context, launcher: ActivityResultLauncher<
         .setGoogleIdTokenRequestOptions(
             BeginSignInRequest.GoogleIdTokenRequestOptions.builder()
                 .setSupported(true)
-                // Your server's client ID, not your Android client ID.
                 .setServerClientId("553104867016-4a5rffksa0vhvt2j4vlvv8650biepqte.apps.googleusercontent.com")
-                // Only show accounts previously used to sign in.
                 .setFilterByAuthorizedAccounts(true)
                 .build()
         )
-        // Automatically sign in when exactly one credential is retrieved.
         .setAutoSelectEnabled(true)
         .build()
 
     try {
-        // Use await() from https://kotlin.github.io/kotlinx.coroutines/kotlinx-coroutines-play-services
-        // Instead of listeners that aren't cleaned up automatically
         val result = oneTapClient.beginSignIn(signInRequest).await()
-
-        // Now construct the IntentSenderRequest the launcher requires
         val intentSenderRequest = IntentSenderRequest.Builder(result.pendingIntent).build()
         launcher.launch(intentSenderRequest)
     } catch (e: Exception) {
-        // No saved credentials found. Launch the One Tap sign-up flow, or
-        // do nothing and continue presenting the signed-out UI.
         openSignUpDialog(context, launcher)
         Log.d("LOG Error", e.message.toString())
     }
