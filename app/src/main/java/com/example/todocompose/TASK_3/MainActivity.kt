@@ -4,12 +4,19 @@ import android.os.Bundle
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.lifecycle.lifecycleScope
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -18,45 +25,45 @@ import com.example.todocompose.TASK_3.screens.LoginScreen
 import com.example.todocompose.TASK_3.screens.ProfileScreen
 import com.example.todocompose.TASK_3.ui.theme.ToDoComposeTheme
 import com.example.todocompose.TASK_3.util.*
-import com.google.firebase.firestore.auth.User
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.firstOrNull
-import kotlin.properties.Delegates
+import com.example.todocompose.TASK_3.view_models.ProfileViewModel
 
 class MainActivity : ComponentActivity() {
-    private var isLoggedIn: Boolean = false
+
+    private lateinit var profileViewModel: ProfileViewModel
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            runBlocking {
-                isLoggedIn = this@MainActivity.readBool(LOGGED_IN).first()
-                if(isLoggedIn){
-                    this@MainActivity.apply {
-                        val firstName = readString(FIRST_NAME).first()
-                        val lastName = readString(LAST_NAME).first()
-                        val email = readString(EMAIL_ID).first()
-                        val docId = readString(DOC_ID).first()
-                        Auth.user = UserModel(firstName, lastName, email, null)
-                        Auth.docId = docId
-                    }
-                }
-            }
+
+            profileViewModel = viewModel<ProfileViewModel>()
+            profileViewModel.isLoggedIn(this)
+
+            val isLoggedIn by profileViewModel.loggedInStatus.collectAsState()
+
             ToDoComposeTheme {
-                val navController: NavHostController = rememberNavController()
-                Log.d("CHECK", isLoggedIn.toString())
-                val startingDestination: String = if (isLoggedIn) Screen.Profile.route else Screen.Login.route
-                NavHost(
-                    navController = navController,
-                    startDestination = startingDestination
-                ) {
-                    composable(route = Screen.Login.route) {
-                        LoginScreen(navController)
+                when (isLoggedIn) {
+                    is Response.LOADING -> {
+                        Surface(modifier = Modifier.fillMaxSize(), color = Color.Cyan) {
+                            CircularProgressIndicator(modifier = Modifier.size(100.dp))
+                        }
                     }
-                    composable(route = Screen.Profile.route) {
-                        ProfileScreen()
+                    else -> {
+                        val navController: NavHostController = rememberNavController()
+                        val startingDestination: String =
+                            if (isLoggedIn.data!!) Screen.Profile.route else Screen.Login.route
+                        NavHost(
+                            navController = navController,
+                            startDestination = startingDestination
+                        ) {
+                            composable(route = Screen.Login.route) {
+                                LoginScreen(navController, this@MainActivity, profileViewModel)
+                            }
+                            composable(route = Screen.Profile.route) {
+                                ProfileScreen(
+                                    this@MainActivity, profileViewModel.user!!, profileViewModel
+                                )
+                            }
+                        }
                     }
                 }
             }
