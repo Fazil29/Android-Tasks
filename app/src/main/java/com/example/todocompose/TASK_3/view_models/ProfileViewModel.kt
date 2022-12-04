@@ -3,53 +3,53 @@ package com.example.todocompose.TASK_3.view_models
 import android.app.Activity
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.ImageDecoder
 import android.net.Uri
-import android.os.Build
-import android.provider.MediaStore
 import android.util.Log
 import android.widget.Toast
 import androidx.activity.result.ActivityResult
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.IntentSenderRequest
 import androidx.core.net.toUri
-import androidx.lifecycle.*
-import com.example.todocompose.TASK_3.util.*
-import com.google.android.gms.auth.api.identity.BeginSignInRequest
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.example.todocompose.TASK_3.util.Response
+import com.example.todocompose.TASK_3.util.UserModel
+import com.example.todocompose.TASK_3.util.helpers.ConversionHelper
+import com.example.todocompose.TASK_3.util.helpers.CredentialHelper
+import com.example.todocompose.TASK_3.util.helpers.FirebaseHelper
+import com.example.todocompose.TASK_3.util.helpers.SignInHelper
 import com.google.android.gms.auth.api.identity.Identity
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
-import com.google.rpc.Help
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.tasks.await
 import java.io.ByteArrayOutputStream
 import java.util.*
 
 class ProfileViewModel : ViewModel() {
 
-    var user: UserModel? = null
+    var user: UserModel = UserModel("", "", "")
         private set
 
-    private val _loggedInStatus = MutableStateFlow<Response<Boolean>>(Response.LOADING())
-    val loggedInStatus: StateFlow<Response<Boolean>> = _loggedInStatus
+    private val _loggedInStatus = MutableStateFlow<Response<UserModel>>(Response.LOADING())
+    val loggedInStatus: StateFlow<Response<UserModel>> = _loggedInStatus
 
     private val _profilePhotoUri = MutableStateFlow<Uri?>(null)
     val profilePhotoUri: StateFlow<Uri?> = _profilePhotoUri
 
-
     fun isLoggedIn(context: Context) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                _loggedInStatus.value = Response.SUCCESS(context.readBool(LOGGED_IN).first())
-                user = Helpers.getCredentialsFromLocal(context)
+                CredentialHelper.getCredentialsFromLocal(context)?.let {
+                    user = it
+                    _loggedInStatus.value = Response.SUCCESS()
+                }?: run {
+                    _loggedInStatus.value = Response.ERROR()
+                }
             } catch (e: Exception) {
-                _loggedInStatus.value = Response.ERROR("ERROR: ${e.message}")
+                _loggedInStatus.value = Response.ERROR()
             }
         }
     }
@@ -66,12 +66,12 @@ class ProfileViewModel : ViewModel() {
 
         if (idToken != null) {
             viewModelScope.launch(Dispatchers.IO) {
-                Helpers.saveCredentials(context, credential)
+                CredentialHelper.saveCredentials(context, credential)
             }
             this@ProfileViewModel.user =
-                UserModel(credential.givenName, credential.familyName, credential.id)
-            if (Helpers.getProfilePicURI(user!!.email!!) == "null".toUri())
-                Helpers.saveNewPhotoLink(user!!.email!!, credential.profilePictureUri.toString())
+                UserModel(credential.givenName.toString(), credential.familyName.toString(), credential.id)
+            if (FirebaseHelper.getProfilePicURI(user.email) == "null".toUri())
+                FirebaseHelper.saveNewPhotoLink(user.email, credential.profilePictureUri.toString())
             navigate()
         } else {
             Log.d("LOG", "Null Token")
@@ -83,7 +83,7 @@ class ProfileViewModel : ViewModel() {
         context: Context,
         launcher: ActivityResultLauncher<IntentSenderRequest>
     ) {
-        Helpers.openDialog(context, launcher, true)
+        SignInHelper.openDialog(context, launcher, true)
     }
 
 
@@ -91,14 +91,14 @@ class ProfileViewModel : ViewModel() {
         context: Context,
         launcher: ActivityResultLauncher<IntentSenderRequest>
     ) {
-        Helpers.openDialog(context, launcher, false)
+        SignInHelper.openDialog(context, launcher, false)
     }
 
 
     fun saveToCloud(context: Activity, uri: Uri) {
         var resultUri: Uri = uri
         _profilePhotoUri.value = resultUri
-        val bitmap = Helpers.uriToBitmap(context, resultUri)
+        val bitmap = ConversionHelper.uriToBitmap(context, resultUri)
 
         Toast.makeText(context, "Saving", Toast.LENGTH_SHORT).show()
 
@@ -111,9 +111,9 @@ class ProfileViewModel : ViewModel() {
         try {
             viewModelScope.launch(Dispatchers.IO) {
                 imageReference.putBytes(image).await().apply {
-                    resultUri = Helpers.sessionToLinkURI(uploadSessionUri.toString())
+                    resultUri = ConversionHelper.sessionToLinkURI(uploadSessionUri.toString())
                 }
-                Helpers.saveNewPhotoLink(user!!.email!!, resultUri.toString())
+                FirebaseHelper.saveNewPhotoLink(user.email, resultUri.toString())
                 _profilePhotoUri.value = resultUri
             }
         } catch (e: Exception) {
@@ -124,7 +124,7 @@ class ProfileViewModel : ViewModel() {
 
     fun getPhotoURI() {
         viewModelScope.launch(Dispatchers.IO) {
-            _profilePhotoUri.value = Helpers.getProfilePicURI(user!!.email!!)
+            _profilePhotoUri.value = FirebaseHelper.getProfilePicURI(user.email)
         }
     }
 }

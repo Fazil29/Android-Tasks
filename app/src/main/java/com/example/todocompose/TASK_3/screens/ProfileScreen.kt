@@ -1,8 +1,6 @@
 package com.example.todocompose.TASK_3.screens
 
 import android.app.Activity
-import android.content.Context
-import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -11,7 +9,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -19,11 +19,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.constraintlayout.compose.ConstraintLayout
 import coil.compose.AsyncImage
-import java.util.*
 import com.example.todocompose.R
-import com.example.todocompose.TASK_3.util.*
+import com.example.todocompose.TASK_3.util.UserModel
 import com.example.todocompose.TASK_3.view_models.ProfileViewModel
-import kotlin.reflect.KFunction1
 
 @Composable
 fun ProfileScreen(activity: Activity, user: UserModel, profileViewModel: ProfileViewModel) {

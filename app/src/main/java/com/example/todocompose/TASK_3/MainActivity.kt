@@ -1,7 +1,6 @@
 package com.example.todocompose.TASK_3
 
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,7 +23,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.todocompose.TASK_3.screens.LoginScreen
 import com.example.todocompose.TASK_3.screens.ProfileScreen
 import com.example.todocompose.TASK_3.ui.theme.ToDoComposeTheme
-import com.example.todocompose.TASK_3.util.*
+import com.example.todocompose.TASK_3.util.Response
+import com.example.todocompose.TASK_3.util.Screen
 import com.example.todocompose.TASK_3.view_models.ProfileViewModel
 
 class MainActivity : ComponentActivity() {
@@ -35,34 +35,43 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
 
-            profileViewModel = viewModel<ProfileViewModel>()
+            profileViewModel = viewModel()
             profileViewModel.isLoggedIn(this)
 
             val isLoggedIn by profileViewModel.loggedInStatus.collectAsState()
+            var startDestination: String = ""
 
             ToDoComposeTheme {
+                val navController: NavHostController = rememberNavController()
                 when (isLoggedIn) {
+
                     is Response.LOADING -> {
                         Surface(modifier = Modifier.fillMaxSize(), color = Color.Cyan) {
                             CircularProgressIndicator(modifier = Modifier.size(100.dp))
                         }
                     }
-                    else -> {
-                        val navController: NavHostController = rememberNavController()
-                        val startingDestination: String =
-                            if (isLoggedIn.data!!) Screen.Profile.route else Screen.Login.route
-                        NavHost(
-                            navController = navController,
-                            startDestination = startingDestination
-                        ) {
-                            composable(route = Screen.Login.route) {
-                                LoginScreen(navController, this@MainActivity, profileViewModel)
-                            }
-                            composable(route = Screen.Profile.route) {
-                                ProfileScreen(
-                                    this@MainActivity, profileViewModel.user!!, profileViewModel
-                                )
-                            }
+
+                    is Response.SUCCESS -> {
+                        startDestination = Screen.Profile.route
+                    }
+
+                    is Response.ERROR -> {
+                        startDestination = Screen.Login.route
+                    }
+                }
+
+                if(startDestination.isNotEmpty()){
+                    NavHost(
+                        navController = navController,
+                        startDestination = startDestination
+                    ) {
+                        composable(route = Screen.Login.route) {
+                            LoginScreen(navController, this@MainActivity, profileViewModel)
+                        }
+                        composable(route = Screen.Profile.route) {
+                            ProfileScreen(
+                                this@MainActivity, profileViewModel.user, profileViewModel
+                            )
                         }
                     }
                 }

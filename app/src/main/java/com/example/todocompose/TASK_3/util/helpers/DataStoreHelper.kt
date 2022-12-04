@@ -7,13 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 const val PREFERENCE_NAME = "MyDataStore"
-const val LOGGED_IN = "logged_in"
-const val FIRST_NAME = "first_name"
-const val LAST_NAME = "last_name"
-const val EMAIL_ID = "email_id"
-const val DOC_ID = "doc_id"
-
-//val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = PREFERENCE_NAME)
+const val USER_DATA = "user"
 
 val Context.dataStore by preferencesDataStore(name = PREFERENCE_NAME)
 
